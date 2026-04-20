@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BoaDica SSD - Preços Mapeados</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- Optimized Data Loading -->
+    <script src="data.js" defer></script>
+    <script src="app.js" defer></script>
+</head>
+<body>
+    <div class="background-glass"></div>
+    
+    <header class="navbar">
+        <div class="navbar-content">
+            <div class="logo-area">
+                <h1>BoaDica <span>SSDs</span></h1>
+                <p class="subtitle">Monitoramento Inteligente de Hardware</p>
+            </div>
+            <div class="nav-stats" style="display: flex; gap: 0.5rem; align-items: center;">
+                <span id="productsBadge" class="stats-badge">Carregando...</span>
+                <span id="statsBadge" class="stats-badge">Carregando...</span>
+            </div>
+        </div>
+    </header>
+
+    <main class="container">
+        <!-- Seção de Pesquisa e Filtros -->
+        <div class="controls search-section">
+            <div class="calc-header">PESQUISA E FILTROS</div>
+            <input type="text" id="searchInput" placeholder="Pesquisar SSD..." class="filter-input" />
+            <select id="regionSelect" class="filter-input">
+                <option value="">Todas as regiões</option>
+                <option value="A" selected>RJ - Centro</option>
+                <option value="E">RJ - Zona Norte</option>
+                <option value="B">RJ - Zona Sul</option>
+                <option value="D">RJ - Zona Sudoeste</option>
+                <option value="C">RJ - Zona Oeste</option>
+                <option value="F">RJ - Niterói</option>
+                <option value="I">RJ - São Gonçalo e Itaboraí</option>
+                <option value="G">RJ - Baixada Fluminense</option>
+                <option value="K">RJ - Região dos Lagos</option>
+                <option value="J">RJ - Região Serrana</option>
+            </select>
+            <select id="typeSelect" class="filter-input">
+                <option value="">Todos</option>
+                <option value="O">OEM</option>
+                <option value="B" selected>BOX</option>
+            </select>
+            <select id="sortSelect" class="filter-input">
+                <option value="storeCountDesc">Produtos mais ofertados</option>
+                <option value="priceMinAsc">Menor custo mínimo</option>
+                <option value="priceAvgAsc">Menor custo médio</option>
+                <option value="nameAsc">Ordem alfabética crescente</option>
+            </select>
+        </div>
+
+        <!-- Dashboard Hub -->
+        <div id="dashboardSummary" class="dashboard-hub">
+            <div class="dash-card">
+                <span class="dash-label">🏷️ Menor Custo</span>
+                <span id="dashMinPrice" class="dash-value">---</span>
+            </div>
+            <div class="dash-card">
+                <span class="dash-label">📊 Média Mercado</span>
+                <span id="dashAvgPrice" class="dash-value">---</span>
+            </div>
+            <div class="dash-card">
+                <span class="dash-label">🚀 Maior Custo</span>
+                <span id="dashMaxPrice" class="dash-value highlight">---</span>
+            </div>
+            <div class="dash-card">
+                <span class="dash-label">📈 ROI Global</span>
+                <span id="roiGlobalBadge" class="dash-value highlight">--%</span>
+            </div>
+        </div>
+
+        <!-- Seção da Calculadora de Venda -->
+        <div class="controls calculator-section">
+            <div class="calc-header">CALCULADORA DE VENDA</div>
+            <div class="calc-row">
+                <div class="calc-pill-number" id="costMinPill">
+                    <span class="calc-unit">Custo médio (mín):</span>
+                    <div class="value-area">
+                        <span class="symbol">R$</span>
+                        <input type="text" id="costMinInput" value="0,00" class="calc-input" data-step="100">
+                    </div>
+                    <div class="calc-spin-btns">
+                        <button class="spin-up" onclick="stepCalcInput('costMinInput', 1)"></button>
+                        <button class="spin-down" onclick="stepCalcInput('costMinInput', -1)"></button>
+                    </div>
+                </div>
+
+                <div class="calc-pill-number" id="costMaxPill">
+                    <span class="calc-unit">Custo médio (máx):</span>
+                    <div class="value-area">
+                        <span class="symbol">R$</span>
+                        <input type="text" id="costMaxInput" value="0,00" class="calc-input" data-step="100">
+                    </div>
+                    <div class="calc-spin-btns">
+                        <button class="spin-up" onclick="stepCalcInput('costMaxInput', 1)"></button>
+                        <button class="spin-down" onclick="stepCalcInput('costMaxInput', -1)"></button>
+                    </div>
+                </div>
+
+                <div class="calc-pill-number" id="margemPill">
+                    <span class="calc-unit">Margem de lucro:</span>
+                    <div class="value-area">
+                        <input type="text" id="margemInput" value="30,00" class="calc-input" data-step="0.01">
+                        <span class="symbol">%</span>
+                    </div>
+                    <div class="calc-spin-btns">
+                        <button class="spin-up" onclick="stepCalcInput('margemInput', 1)"></button>
+                        <button class="spin-down" onclick="stepCalcInput('margemInput', -1)"></button>
+                    </div>
+                </div>
+
+                <div class="calc-pill-number" id="tarifaPill">
+                    <span class="calc-unit">Tarifa de venda:</span>
+                    <div class="value-area">
+                        <input type="text" id="tarifaInput" value="18,00" class="calc-input" data-step="0.01">
+                        <span class="symbol">%</span>
+                    </div>
+                    <div class="calc-spin-btns">
+                        <button class="spin-up" onclick="stepCalcInput('tarifaInput', 1)"></button>
+                        <button class="spin-down" onclick="stepCalcInput('tarifaInput', -1)"></button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="loading" class="loading">
+            <div class="spinner"></div>
+            <p>Carregando mercado...</p>
+        </div>
+
+        <div id="productsGrid" class="products-grid">
+            <!-- Cards will be dynamically injected here -->
+        </div>
+    </main>
+
+    <!-- Data script generated by automated scraper -->
+</body>
+</html>

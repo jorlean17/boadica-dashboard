@@ -176,8 +176,8 @@ async function runScraper() {
         // Ordenar por popularidade
         resultsArray.sort((a, b) => b.StoreCount - a.StoreCount);
 
-        // Salvar Arquivo
-        const jsContent = `window.BOADICA_DATA = ${JSON.stringify(resultsArray, null, 2)};`;
+        // Salvar Arquivo Compactado (Minificado)
+        const jsContent = `window.BOADICA_DATA = ${JSON.stringify(resultsArray)};`;
         const outputPath = path.join(__dirname, 'webapp', 'data.js');
         
         // Garantir que a pasta webapp existe
