@@ -23,26 +23,49 @@ export default async function handler(req, res) {
             if (r.data.precos) allPrecos = [...allPrecos, ...r.data.precos];
         }
 
-        const resultsArray = [];
         const groups = {};
         allPrecos.forEach(item => {
             const key = `${item.fabricante.trim()}|${item.modelo.trim()}`;
-            if (!groups[key]) groups[key] = [];
+            if (!groups[key]) {
+                groups[key] = {
+                    Name: key.replace('|', ' '),
+                    Brand: item.fabricante.trim(),
+                    Model: item.modelo.trim(),
+                    Spec: item.especificacao || '',
+                    Stores: []
+                };
+            }
+            
+            // Tratamento do preço
             let pPrice = parseFloat(item.preco.toString().replace(/[^0-9,.]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
-            item.ParsedPrice = pPrice;
-            groups[key].push(item);
+            
+            // Tratamento dos contatos
+            let contacts = [];
+            if (item.telefone) contacts.push({ Type: 'LANDLINE', Number: item.telefone });
+            if (item.whatsapp) contacts.push({ Type: 'WHATSAPP', Number: item.whatsapp });
+
+            groups[key].Stores.push({
+                Name: item.loja || 'Loja Desconhecida',
+                Price: pPrice,
+                RegionCode: item.regiao || 'A',
+                Type: item.tipo === 'OEM' ? 'OEM' : 'BOX',
+                Contacts: contacts
+            });
         });
 
-        for (const key in groups) {
-            const group = groups[key];
-            const avgPrice = group.reduce((sum, i) => sum + i.ParsedPrice, 0) / group.length;
-            resultsArray.push({
-                Name: key.replace('|', ' '),
-                AvgPrice: Math.round(avgPrice * 100) / 100,
-                PrecoVenda: Math.round((avgPrice / 0.70) * 100) / 100,
-                StoreCount: group.length
-            });
-        }
+        // Converte o objeto de grupos em um array e calcula os preços iniciais
+        const resultsArray = Object.values(groups).map(p => {
+            const prices = p.Stores.map(s => s.Price);
+            const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
+            return {
+                ...p,
+                MinPrice: Math.min(...prices),
+                MaxPrice: Math.max(...prices),
+                AvgPrice: Math.round(avg * 100) / 100,
+                PrecoVenda: Math.round((avg / 0.70) * 100) / 100, // Margem padrão de 30%
+                StoreCount: p.Stores.length
+            };
+        });
 
         await kv.set('boadica_prices', resultsArray);
         res.status(200).json({ success: true, count: resultsArray.length });
