@@ -8,7 +8,7 @@ const kv = new Redis({
 });
 
 const API_URL = 'https://boadica.com.br/WebApi/api/pesquisa/precos';
-const HEADERS = { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' };
+const HEADERS = { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36' };
 const baseBody = { Slug: "arm_ssd", ClasseProdutoX: 15, CodCategoriaX: 6, CurPage: 1 };
 
 function parsePrice(val) {
@@ -28,23 +28,19 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 export default async function handler(req, res) {
     try {
         const firstRes = await axios.post(API_URL, baseBody, { headers: HEADERS });
-        const totalPages = firstRes.data.paginas || 1;
+        const totalPages = Math.min(firstRes.data.paginas || 1, 20); // Limitando a 20 páginas para não dar timeout na Vercel
         let allPrecos = [...(firstRes.data.precos || [])];
 
         if (totalPages > 1) {
-            // Processa as páginas em pequenos lotes para não ser bloqueado (503)
-            const BATCH_SIZE = 5; 
-            for (let i = 2; i <= totalPages; i += BATCH_SIZE) {
-                const batch = [];
-                for (let j = i; j < i + BATCH_SIZE && j <= totalPages; j++) {
-                    batch.push(axios.post(API_URL, { ...baseBody, CurPage: j }, { headers: HEADERS }));
-                }
-                const responses = await Promise.all(batch);
-                responses.forEach(r => {
+            for (let i = 2; i <= totalPages; i++) {
+                try {
+                    const r = await axios.post(API_URL, { ...baseBody, CurPage: i }, { headers: HEADERS });
                     if (r.data.precos) allPrecos = [...allPrecos, ...r.data.precos];
-                });
-                // Pequena pausa entre os lotes
-                if (i + BATCH_SIZE <= totalPages) await sleep(300);
+                    await sleep(600); // Pausa de 600ms entre cada página para evitar 503
+                } catch (e) {
+                    console.error(`Erro na página ${i}:`, e.message);
+                    if (e.response?.status === 503) break; // Se começar a dar 503, para por aqui e salva o que já pegou
+                }
             }
         }
 
@@ -89,8 +85,8 @@ export default async function handler(req, res) {
         }).filter(p => p !== null);
 
         await kv.set('boadica_prices', resultsArray);
-        res.status(200).json({ success: true, count: resultsArray.length, pages: totalPages });
+        res.status(200).json({ success: true, count: resultsArray.length, pages_processed: totalPages });
     } catch (error) {
-        res.status(500).json({ error: error.message, status: error.response?.status });
+        res.status(500).json({ error: error.message });
     }
 }
