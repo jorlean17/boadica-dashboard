@@ -1,7 +1,6 @@
 {
-  "public": true,
   "cleanUrls": true,
   "rewrites": [
-    { "source": "/(.*)", "destination": "/webapp/$1" }
+    { "source": "/((?!api/).*)", "destination": "/webapp/$1" }
   ]
 }
