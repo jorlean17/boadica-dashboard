@@ -41,21 +41,35 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let ssdData = [];
 
-    // Carregar dados da API (Vercel KV)
-    fetch('/api/get-data')
-        .then(response => response.json())
-        .then(data => {
-            ssdData = data;
+    // Função para rodar o scraper e recarregar os dados
+    const syncAndRefresh = async () => {
+        if (loading) {
+            loading.style.display = 'flex';
+            loading.querySelector('p').innerText = 'Sincronizando com BoaDica e Mercado Livre...';
+        }
+        
+        try {
+            // 1. Dispara o Scraper na nuvem
+            await fetch('/api/run-scraper');
+            
+            // 2. Busca os dados atualizados do banco
+            const response = await fetch('/api/get-data');
+            ssdData = await response.json();
+            
+            // 3. Renderiza na tela
             processAndRender();
-        })
-        .catch(error => {
-            console.error('Erro ao carregar dados:', error);
-            productsGrid.innerHTML = `
-                <div style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 3rem;">
-                    <h2>Erro ao carregar dados!</h2>
-                    <p>Verifique a conexão com o banco de dados Upstash.</p>
-                </div>`;
-        });
+        } catch (error) {
+            console.error('Erro na sincronização:', error);
+            if (productsGrid) {
+                productsGrid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 3rem;"><h2>Erro na sincronização!</h2></div>`;
+            }
+        } finally {
+            if (loading) loading.style.display = 'none';
+        }
+    };
+
+    // Carga inicial
+    syncAndRefresh();
 
     // Format currency
     const formatBRL = (value) => {
@@ -327,13 +341,13 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Events
-    if (searchInput) searchInput.addEventListener('input', processAndRender);
-    if (sortSelect) sortSelect.addEventListener('change', processAndRender);
+    if (searchInput) searchInput.addEventListener('change', syncAndRefresh); // Usando change para não disparar a cada tecla, mas sim ao terminar de digitar
+    if (sortSelect) sortSelect.addEventListener('change', syncAndRefresh);
     
     const regionSelect = document.getElementById('regionSelect');
     const typeSelect = document.getElementById('typeSelect');
-    if (regionSelect) regionSelect.addEventListener('change', processAndRender);
-    if (typeSelect) typeSelect.addEventListener('change', processAndRender);
+    if (regionSelect) regionSelect.addEventListener('change', syncAndRefresh);
+    if (typeSelect) typeSelect.addEventListener('change', syncAndRefresh);
 
     const maskPercentage = (e) => {
         let value = e.target.value.replace(/\D/g, '');
