@@ -11,6 +11,29 @@ const API_URL = 'https://boadica.com.br/WebApi/api/pesquisa/precos';
 const HEADERS = { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' };
 const baseBody = { Slug: "arm_ssd", ClasseProdutoX: 15, CodCategoriaX: 6, CurPage: 1 };
 
+function parsePrice(val) {
+    if (typeof val === 'number') return val;
+    if (!val) return 0;
+    
+    let s = val.toString().trim();
+    // Se tem vírgula, é formato brasileiro (1.234,56)
+    if (s.includes(',')) {
+        return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
+    }
+    // Se não tem vírgula mas tem ponto, precisamos decidir se o ponto é decimal ou milhar
+    // No BoaDica, se o ponto está na 3ª casa decimal (ex: 123.45), é decimal. 
+    // Se for algo como 1.234, é milhar.
+    if (s.includes('.')) {
+        const parts = s.split('.');
+        if (parts[parts.length - 1].length <= 2) {
+            return parseFloat(s) || 0; // Provavelmente decimal (ex: 150.50)
+        } else {
+            return parseFloat(s.replace(/\./g, '')) || 0; // Provavelmente milhar (ex: 1.234)
+        }
+    }
+    return parseFloat(s) || 0;
+}
+
 export default async function handler(req, res) {
     try {
         let allPrecos = [];
@@ -36,11 +59,8 @@ export default async function handler(req, res) {
                 };
             }
             
-            // Tratamento do preço
-            let pPrice = parseFloat(item.preco.toString().replace(/[^0-9,.]/g, '').replace(/\./g, '').replace(',', '.')) || 0;
-            
-            // Tratamento dos contatos
-            let contacts = [];
+            const pPrice = parsePrice(item.preco);
+            const contacts = [];
             if (item.telefone) contacts.push({ Type: 'LANDLINE', Number: item.telefone });
             if (item.whatsapp) contacts.push({ Type: 'WHATSAPP', Number: item.whatsapp });
 
@@ -53,19 +73,20 @@ export default async function handler(req, res) {
             });
         });
 
-        // Converte o objeto de grupos em um array e calcula os preços iniciais
         const resultsArray = Object.values(groups).map(p => {
-            const prices = p.Stores.map(s => s.Price);
+            const prices = p.Stores.map(s => s.Price).filter(p => p > 10); // Remove preços lixo
+            if (prices.length === 0) return null;
+            
             const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
             return {
                 ...p,
                 MinPrice: Math.min(...prices),
                 MaxPrice: Math.max(...prices),
                 AvgPrice: Math.round(avg * 100) / 100,
-                PrecoVenda: Math.round((avg / 0.70) * 100) / 100, // Margem padrão de 30%
+                PrecoVenda: Math.round((avg / 0.70) * 100) / 100,
                 StoreCount: p.Stores.length
             };
-        });
+        }).filter(p => p !== null);
 
         await kv.set('boadica_prices', resultsArray);
         res.status(200).json({ success: true, count: resultsArray.length });
