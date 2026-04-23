@@ -2,5 +2,11 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/((?!api/).*)", "destination": "/webapp/$1" }
+  ],
+  "crons": [
+    {
+      "path": "/api/run-scraper",
+      "schedule": "0 * * * *"
+    }
   ]
 }

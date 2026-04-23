@@ -1,6 +1,15 @@
 const axios = require('axios');
 const fs = require('fs');
 const path = require('path');
+const { updateItemPrice } = require('./ml_api');
+
+// --- MAPEAMENTO DE ANÚNCIOS MERCADO LIVRE ---
+// Adicione aqui o ID do anúncio (MLB...) e o nome exato ou SKU do produto
+const MAPEAR_PRODUTOS_ML = {
+    // "NOME_DO_PRODUTO": "ID_MLB",
+    "SSD Kingston NV2 1TB": "MLB000000000", // Exemplo
+};
+
 
 // --- Auxiliares de Formatação (Equivalente ao PowerShell) ---
 function formatBDPhone(p, isWa) {
@@ -186,7 +195,17 @@ async function runScraper() {
         }
 
         fs.writeFileSync(outputPath, jsContent, 'utf8');
-        console.log(`Sucesso! Dados gerados em: ${outputPath}`);
+        // --- Integração Mercado Livre ---
+        console.log('\n--- Verificando atualizações para o Mercado Livre ---');
+        for (const item of resultsArray) {
+            const mlId = MAPEAR_PRODUTOS_ML[item.Name];
+            if (mlId) {
+                console.log(`Atualizando ${item.Name} no ML (ID: ${mlId})...`);
+                await updateItemPrice(mlId, item.PrecoVenda);
+            }
+        }
+
+        console.log('\nSucesso! Processo concluído.');
 
     } catch (error) {
         console.error('Erro fatal no scraper:', error.message);

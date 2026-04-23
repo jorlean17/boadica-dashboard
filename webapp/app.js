@@ -41,16 +41,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let ssdData = [];
 
-    // Verify if data is loaded
-    if (window.BOADICA_DATA) {
-        ssdData = window.BOADICA_DATA;
-    } else {
-        productsGrid.innerHTML = `
-            <div style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 3rem;">
-                <h2>Nenhum dado encontrado!</h2>
-                <p>Execute o script PowerShell "generate_with_phones.ps1" primeiro para consolidar o data.js.</p>
-            </div>`;
-    }
+    // Carregar dados da API (Vercel KV)
+    fetch('/api/get-data')
+        .then(response => response.json())
+        .then(data => {
+            ssdData = data;
+            processAndRender();
+        })
+        .catch(error => {
+            console.error('Erro ao carregar dados:', error);
+            productsGrid.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 3rem;">
+                    <h2>Erro ao carregar dados!</h2>
+                    <p>Verifique a conexão com o banco de dados Upstash.</p>
+                </div>`;
+        });
 
     // Format currency
     const formatBRL = (value) => {
@@ -412,14 +417,5 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
-    // Initial render
-    setTimeout(() => {
-        if(window.BOADICA_DATA) {
-            ssdData = window.BOADICA_DATA;
-            processAndRender();
-        } else {
-            productsGrid.innerHTML = '<p style="text-align:center;color:white;">Erro: Dados não carregados em data.js.</p>';
-            statsBadge.textContent = 'Erro de dados';
-        }
-    }, 100);
+    // Initial render is handled by fetch above
 });
