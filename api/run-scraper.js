@@ -14,36 +14,32 @@ const baseBody = { Slug: "arm_ssd", ClasseProdutoX: 15, CodCategoriaX: 6, CurPag
 function parsePrice(val) {
     if (typeof val === 'number') return val;
     if (!val) return 0;
-    
     let s = val.toString().trim();
-    // Se tem vírgula, é formato brasileiro (1.234,56)
-    if (s.includes(',')) {
-        return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
-    }
-    // Se não tem vírgula mas tem ponto, precisamos decidir se o ponto é decimal ou milhar
-    // No BoaDica, se o ponto está na 3ª casa decimal (ex: 123.45), é decimal. 
-    // Se for algo como 1.234, é milhar.
+    if (s.includes(',')) return parseFloat(s.replace(/\./g, '').replace(',', '.')) || 0;
     if (s.includes('.')) {
         const parts = s.split('.');
-        if (parts[parts.length - 1].length <= 2) {
-            return parseFloat(s) || 0; // Provavelmente decimal (ex: 150.50)
-        } else {
-            return parseFloat(s.replace(/\./g, '')) || 0; // Provavelmente milhar (ex: 1.234)
-        }
+        return parts[parts.length - 1].length <= 2 ? parseFloat(s) || 0 : parseFloat(s.replace(/\./g, '')) || 0;
     }
     return parseFloat(s) || 0;
 }
 
 export default async function handler(req, res) {
     try {
-        let allPrecos = [];
         const firstRes = await axios.post(API_URL, baseBody, { headers: HEADERS });
-        const totalPages = Math.min(firstRes.data.paginas, 5);
-        if (firstRes.data.precos) allPrecos = [...firstRes.data.precos];
+        const totalPages = firstRes.data.paginas || 1;
+        
+        let allPrecos = [...(firstRes.data.precos || [])];
 
-        for (let i = 2; i <= totalPages; i++) {
-            const r = await axios.post(API_URL, { ...baseBody, CurPage: i }, { headers: HEADERS });
-            if (r.data.precos) allPrecos = [...allPrecos, ...r.data.precos];
+        // Se houver mais páginas, busca todas em paralelo
+        if (totalPages > 1) {
+            const requests = [];
+            for (let i = 2; i <= totalPages; i++) {
+                requests.push(axios.post(API_URL, { ...baseBody, CurPage: i }, { headers: HEADERS }));
+            }
+            const responses = await Promise.all(requests);
+            responses.forEach(r => {
+                if (r.data.precos) allPrecos = [...allPrecos, ...r.data.precos];
+            });
         }
 
         const groups = {};
@@ -58,7 +54,6 @@ export default async function handler(req, res) {
                     Stores: []
                 };
             }
-            
             const pPrice = parsePrice(item.preco);
             const contacts = [];
             if (item.telefone) contacts.push({ Type: 'LANDLINE', Number: item.telefone });
@@ -74,9 +69,8 @@ export default async function handler(req, res) {
         });
 
         const resultsArray = Object.values(groups).map(p => {
-            const prices = p.Stores.map(s => s.Price).filter(p => p > 10); // Remove preços lixo
+            const prices = p.Stores.map(s => s.Price).filter(p => p > 10);
             if (prices.length === 0) return null;
-            
             const avg = prices.reduce((a, b) => a + b, 0) / prices.length;
             return {
                 ...p,
@@ -89,7 +83,7 @@ export default async function handler(req, res) {
         }).filter(p => p !== null);
 
         await kv.set('boadica_prices', resultsArray);
-        res.status(200).json({ success: true, count: resultsArray.length });
+        res.status(200).json({ success: true, count: resultsArray.length, pages: totalPages });
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
