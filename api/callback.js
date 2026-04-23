@@ -1,5 +1,7 @@
 import axios from 'axios';
-import { kv } from '@vercel/kv';
+import { Redis } from '@upstash/redis';
+
+const kv = Redis.fromEnv();
 
 export default async function handler(req, res) {
     const { code } = req.query;
@@ -23,17 +25,14 @@ export default async function handler(req, res) {
         const tokenData = response.data;
         tokenData.expires_at = Date.now() + (tokenData.expires_in * 1000);
 
-        // SALVA NO BANCO DE DADOS (KV)
         await kv.set('ml_auth_tokens', tokenData);
 
         res.status(200).send(`
             <h1>Sucesso!</h1>
             <p>Conexão com Mercado Livre realizada e salva no Banco de Dados.</p>
-            <p>Seu app agora pode atualizar preços automaticamente.</p>
             <script>setTimeout(() => window.location.href = '/', 3000);</script>
         `);
     } catch (error) {
-        console.error('Erro na autenticação:', error.response?.data || error.message);
         res.status(500).json({ error: 'Falha na troca do token', details: error.response?.data });
     }
 }
