@@ -28,7 +28,7 @@ const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 export default async function handler(req, res) {
     try {
         const firstRes = await axios.post(API_URL, baseBody, { headers: HEADERS });
-        const totalPages = Math.min(firstRes.data.paginas || 1, 20); // Limitando a 20 páginas para não dar timeout na Vercel
+        const totalPages = firstRes.data.paginas || 1;
         let allPrecos = [...(firstRes.data.precos || [])];
 
         if (totalPages > 1) {
