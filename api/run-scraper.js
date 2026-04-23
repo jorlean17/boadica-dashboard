@@ -23,23 +23,29 @@ function parsePrice(val) {
     return parseFloat(s) || 0;
 }
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 export default async function handler(req, res) {
     try {
         const firstRes = await axios.post(API_URL, baseBody, { headers: HEADERS });
         const totalPages = firstRes.data.paginas || 1;
-        
         let allPrecos = [...(firstRes.data.precos || [])];
 
-        // Se houver mais páginas, busca todas em paralelo
         if (totalPages > 1) {
-            const requests = [];
-            for (let i = 2; i <= totalPages; i++) {
-                requests.push(axios.post(API_URL, { ...baseBody, CurPage: i }, { headers: HEADERS }));
+            // Processa as páginas em pequenos lotes para não ser bloqueado (503)
+            const BATCH_SIZE = 5; 
+            for (let i = 2; i <= totalPages; i += BATCH_SIZE) {
+                const batch = [];
+                for (let j = i; j < i + BATCH_SIZE && j <= totalPages; j++) {
+                    batch.push(axios.post(API_URL, { ...baseBody, CurPage: j }, { headers: HEADERS }));
+                }
+                const responses = await Promise.all(batch);
+                responses.forEach(r => {
+                    if (r.data.precos) allPrecos = [...allPrecos, ...r.data.precos];
+                });
+                // Pequena pausa entre os lotes
+                if (i + BATCH_SIZE <= totalPages) await sleep(300);
             }
-            const responses = await Promise.all(requests);
-            responses.forEach(r => {
-                if (r.data.precos) allPrecos = [...allPrecos, ...r.data.precos];
-            });
         }
 
         const groups = {};
@@ -85,6 +91,6 @@ export default async function handler(req, res) {
         await kv.set('boadica_prices', resultsArray);
         res.status(200).json({ success: true, count: resultsArray.length, pages: totalPages });
     } catch (error) {
-        res.status(500).json({ error: error.message });
+        res.status(500).json({ error: error.message, status: error.response?.status });
     }
 }
