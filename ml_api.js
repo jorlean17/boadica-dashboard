@@ -1,6 +1,5 @@
 const axios = require('axios');
 const { Redis } = require('@upstash/redis');
-require('dotenv').config();
 
 // Tenta usar as variáveis do Upstash ou do Vercel KV
 const kv = new Redis({
