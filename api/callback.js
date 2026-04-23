@@ -13,6 +13,8 @@ export default async function handler(req, res) {
         return res.status(400).send('Código não fornecido pelo Mercado Livre.');
     }
 
+    console.log('Iniciando troca de token para o código:', code);
+
     try {
         const response = await axios.post('https://api.mercadolibre.com/oauth/token', {
             grant_type: 'authorization_code',
@@ -25,6 +27,7 @@ export default async function handler(req, res) {
         const tokenData = response.data;
         tokenData.expires_at = Date.now() + (tokenData.expires_in * 1000);
 
+        console.log('Token recebido com sucesso. Salvando no Upstash...');
         await kv.set('ml_auth_tokens', tokenData);
 
         res.status(200).send(`
@@ -33,6 +36,16 @@ export default async function handler(req, res) {
             <script>setTimeout(() => window.location.href = '/', 3000);</script>
         `);
     } catch (error) {
-        res.status(500).json({ error: 'Falha na troca do token', details: error.response?.data });
+        const errorDetail = error.response?.data || error.message;
+        console.error('Erro detalhado na autenticação:', errorDetail);
+        
+        res.status(500).json({ 
+            error: 'Falha na troca do token', 
+            motivo_real: errorDetail,
+            config_usada: {
+                client_id_presente: !!CLIENT_ID,
+                redirect_uri: REDIRECT_URI
+            }
+        });
     }
 }
