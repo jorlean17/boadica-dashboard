@@ -2,8 +2,12 @@ const axios = require('axios');
 const { Redis } = require('@upstash/redis');
 require('dotenv').config();
 
-// Configura o Redis usando as variáveis de ambiente da Vercel
-const kv = Redis.fromEnv();
+// Força o uso das variáveis da Vercel KV
+const kv = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
+
 const TOKEN_KEY = 'ml_auth_tokens';
 
 async function getAccessToken() {
@@ -18,7 +22,6 @@ async function getAccessToken() {
         return tokens.access_token;
     }
 
-    console.log('Renovando token do Mercado Livre no banco de dados...');
     try {
         const response = await axios.post('https://api.mercadolibre.com/oauth/token', {
             grant_type: 'refresh_token',
@@ -33,7 +36,6 @@ async function getAccessToken() {
         await kv.set(TOKEN_KEY, newTokens);
         return newTokens.access_token;
     } catch (error) {
-        console.error('Erro ao renovar token:', error.response?.data || error.message);
         throw new Error('Falha ao renovar token.');
     }
 }
@@ -41,15 +43,14 @@ async function getAccessToken() {
 async function updateItemPrice(itemId, price) {
     try {
         const token = await getAccessToken();
-        const response = await axios.put(`https://api.mercadolibre.com/items/${itemId}`, {
+        await axios.put(`https://api.mercadolibre.com/items/${itemId}`, {
             price: price
         }, {
             headers: { Authorization: `Bearer ${token}` }
         });
-        console.log(`Sucesso: Preço do item ${itemId} atualizado para R$ ${price}`);
-        return response.data;
+        console.log(`Sucesso: Preço do item ${itemId} atualizado.`);
     } catch (error) {
-        console.error(`Erro ao atualizar item ${itemId}:`, error.response?.data || error.message);
+        console.error(`Erro ao atualizar item ${itemId}:`, error.message);
     }
 }
 

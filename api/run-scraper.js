@@ -2,12 +2,10 @@ const axios = require('axios');
 const { Redis } = require('@upstash/redis');
 const { updateItemPrice } = require('../ml_api');
 
-const kv = Redis.fromEnv();
-
-// --- MAPEAMENTO DE ANÚNCIOS MERCADO LIVRE ---
-const MAPEAR_PRODUTOS_ML = {
-    "SSD Kingston NV2 1TB": "MLB000000000",
-};
+const kv = new Redis({
+  url: process.env.KV_REST_API_URL,
+  token: process.env.KV_REST_API_TOKEN,
+});
 
 const API_URL = 'https://boadica.com.br/WebApi/api/pesquisa/precos';
 const HEADERS = {
@@ -17,12 +15,7 @@ const HEADERS = {
     'User-Agent': 'Mozilla/5.0'
 };
 
-const baseBody = {
-    Slug: "arm_ssd",
-    ClasseProdutoX: 15,
-    CodCategoriaX: 6,
-    CurPage: 1
-};
+const baseBody = { Slug: "arm_ssd", ClasseProdutoX: 15, CodCategoriaX: 6, CurPage: 1 };
 
 export default async function handler(req, res) {
     try {
@@ -61,7 +54,7 @@ export default async function handler(req, res) {
         await kv.set('boadica_prices', resultsArray);
 
         for (const item of resultsArray) {
-            const mlId = MAPEAR_PRODUTOS_ML[item.Name];
+            const mlId = (await kv.get('ml_mappings'))?.[item.Name];
             if (mlId) {
                 await updateItemPrice(mlId, item.PrecoVenda);
             }
