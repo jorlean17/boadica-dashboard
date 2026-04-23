@@ -3,18 +3,12 @@ const { Redis } = require('@upstash/redis');
 const { updateItemPrice } = require('../ml_api');
 
 const kv = new Redis({
-  url: process.env.KV_REST_API_URL,
-  token: process.env.KV_REST_API_TOKEN,
+  url: process.env.UPSTASH_REDIS_REST_URL || process.env.KV_REST_API_URL,
+  token: process.env.UPSTASH_REDIS_REST_TOKEN || process.env.KV_REST_API_TOKEN,
 });
 
 const API_URL = 'https://boadica.com.br/WebApi/api/pesquisa/precos';
-const HEADERS = {
-    'Content-Type': 'application/json',
-    'Origin': 'https://boadica.com.br',
-    'Referer': 'https://boadica.com.br/pesquisa/arm_ssd/precos?ClasseProdutoX=15&CodCategoriaX=6',
-    'User-Agent': 'Mozilla/5.0'
-};
-
+const HEADERS = { 'Content-Type': 'application/json', 'User-Agent': 'Mozilla/5.0' };
 const baseBody = { Slug: "arm_ssd", ClasseProdutoX: 15, CodCategoriaX: 6, CurPage: 1 };
 
 export default async function handler(req, res) {
@@ -22,7 +16,6 @@ export default async function handler(req, res) {
         let allPrecos = [];
         const firstRes = await axios.post(API_URL, baseBody, { headers: HEADERS });
         const totalPages = Math.min(firstRes.data.paginas, 5);
-        
         if (firstRes.data.precos) allPrecos = [...firstRes.data.precos];
 
         for (let i = 2; i <= totalPages; i++) {
@@ -52,14 +45,6 @@ export default async function handler(req, res) {
         }
 
         await kv.set('boadica_prices', resultsArray);
-
-        for (const item of resultsArray) {
-            const mlId = (await kv.get('ml_mappings'))?.[item.Name];
-            if (mlId) {
-                await updateItemPrice(mlId, item.PrecoVenda);
-            }
-        }
-
         res.status(200).json({ success: true, count: resultsArray.length });
     } catch (error) {
         res.status(500).json({ error: error.message });
